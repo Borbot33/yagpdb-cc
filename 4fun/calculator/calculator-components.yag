@@ -1,0 +1,57 @@
+{{/*
+    Made by Borbot
+    Trigger Type: Message Component
+    CustomID: calc
+*/}}
+
+{{/*Settings*/}}
+{{$defaultMessage := "Please enter some numbers."}}
+{{$errorMessage := "Error"}}
+
+{{/*CODE*/}}
+{{if .Message.Embeds}}
+    {{$embed := structToSdict (index .Message.Embeds 0)}}
+    {{$components := cslice}}
+
+    {{if eq $embed.Title "Calculator"}}
+        {{$id := index (split .CustomID "_") 2}}
+        {{$userid := index (split .CustomID "_") 1}}
+
+        {{$desc := index (split $embed.Description "```") 1}}
+        {{$content := ""}}
+
+        {{if ne (str .User.ID) $userid}}
+            {{sendResponse .Interaction.Token (complexMessage "ephemeral" true "content" "That's not your calculator.")}}
+            {{return}}
+        {{end}}
+        
+        {{- range .Message.Components -}}
+            {{- $components = $components.Append .Components -}}
+        {{- end -}}
+
+        {{if not (eq $desc $defaultMessage "Error")}}
+            {{$content = $desc}}
+        {{end}}
+
+        {{if eq $id "="}}
+            {{try}}
+                {{$content = toFloat (index (reFindAllSubmatches `Result: \x60(.+)\x60` (reReplace `,` (exec "calc" $content) ".")) 0 1)}}
+            {{catch}}
+                {{$content = $errorMessage}}
+            {{end}}
+        {{else if eq $id "backspace"}}
+            {{if and (ne (sub (len $content) 1) 0) (ge (sub (len $content) 1) 1)}}
+                {{$content = slice $content 0 (sub (len $content) 1)}}
+            {{else}}
+                {{$content = $defaultMessage}}
+            {{end}}
+        {{else if eq $id "clear"}}
+            {{$content = $defaultMessage}}
+        {{else}}
+            {{$content = print $content $id}}
+        {{end}}
+
+        {{$embed.Set "Description" (print "```" $content "```")}}
+        {{updateMessage (complexMessageEdit "components" $components "embed" (cembed $embed))}}
+    {{end}}
+{{end}}
