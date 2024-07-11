@@ -1,0 +1,50 @@
+{{/*
+    Made by Borbot
+    Trigger Type: Command
+    Command Trigger: calculator
+*/}}
+
+{{/*Settings*/}}
+{{$embedColor := 0xf45246}}
+{{$defaultMessage := "Please enter some numbers."}}
+
+{{/*CODE*/}}
+{{$id := print "calc_" .User.ID "_"}}
+
+{{sendMessage nil (complexMessage "embed" (cembed
+        "title" "Calculator"
+        "description" (print "```" $defaultMessage "```")
+        "color" $embedColor
+    )
+    "components" (cslice
+        (cslice
+            (cbutton "label" "AC" "style" "danger" "custom_id" (print $id "clear"))
+            (cbutton "label" "(" "custom_id" (print $id "("))
+            (cbutton "label" ")" "custom_id" (print $id ")"))
+            (cbutton "label" "⬅" "custom_id" (print $id "backspace"))
+        )
+        (cslice 
+            (cbutton "label" "1" "style" "secondary" "custom_id" (print $id "1"))
+            (cbutton "label" "2" "style" "secondary" "custom_id" (print $id "2"))
+            (cbutton "label" "3" "style" "secondary" "custom_id" (print $id "3"))
+            (cbutton "label" "/" "custom_id" (print $id "/"))
+        )
+        (cslice 
+            (cbutton "label" "4" "style" "secondary" "custom_id" (print $id "4"))
+            (cbutton "label" "5" "style" "secondary" "custom_id" (print $id "5"))
+            (cbutton "label" "6" "style" "secondary" "custom_id" (print $id "6"))
+            (cbutton "label" "*" "custom_id" (print $id "*"))
+        )
+        (cslice 
+            (cbutton "label" "7" "style" "secondary" "custom_id" (print $id "7"))
+            (cbutton "label" "8" "style" "secondary" "custom_id" (print $id "8"))
+            (cbutton "label" "9" "style" "secondary" "custom_id" (print $id "9"))
+            (cbutton "label" "-" "custom_id" (print $id "-"))
+        )
+        (cslice 
+            (cbutton "label" "0" "style" "secondary" "custom_id" (print $id "0"))
+            (cbutton "label" "," "style" "secondary" "custom_id" (print $id ","))
+            (cbutton "label" "=" "style" "success" "custom_id" (print $id "="))
+            (cbutton "label" "+" "style" "success" "custom_id" (print $id "+"))
+        )
+))}}
