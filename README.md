@@ -8,5 +8,9 @@ That's my small repository. I'll upload here some examples for my API, 4fun Comm
     - [Steal](https://github.com/Borbot33/yagpdb-cc/tree/main/4fun/credits/steal.yag)
     - [Roulette](https://github.com/Borbot33/yagpdb-cc/tree/main/4fun/credits/roulette.yag)
     - [Coinflip](https://github.com/Borbot33/yagpdb-cc/tree/main/4fun/credits/coinflip.yag)
+  - [Informational](https://github.com/Borbot33/yagpdb-cc/tree/main/4fun/informational)
+    - [Artikel Searcher](https://github.com/Borbot33/yagpdb-cc/tree/main/4fun/informational/artikel.yag)
+    - [Wikipedia Searcher](https://github.com/Borbot33/yagpdb-cc/tree/main/4fun/informational/wikipedia.yag)
+
 ## Other CC's and YAG related projects
 - [Ranger's Economy CC's](https://github.com/Ranger-4297/Dynamic-YAGPDB-ccs)
