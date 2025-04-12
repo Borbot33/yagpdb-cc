@@ -1,0 +1,189 @@
+{{/*
+    Trigger Type: Regex
+    Trigger: \A(\?\?|<@!?204255221017214977>\s*)(collect|roulette)(\s+|\z)
+
+    Made by Borbot (1137070353340960829) in 2025
+*/}}
+
+{{/* SETTINGS */}}
+{{$creditsDB := "CREDITS"}}
+{{$collectDBExpire := 86400}}{{/* TIME IN SECONDS*/}}
+{{$cooldown := 2}} {{/* ROULETTE COOLDOWN */}}
+{{$minBet := 500}} 
+{{$maxBet := 30000}}
+
+{{/* CODE */}}
+{{$collectDB := or (dbGet .Guild.ID "collectDB").Value dict}}
+
+{{$db := (dbGet .Channel.ID "roulette")}}
+{{$rouletteDB := or $db.Value
+    (sdict
+        "endTime" (add currentTime.Unix 60)
+        "bets" (cslice)
+    )
+}}
+
+{{/* EXPIRE COLLECT */}}
+{{range $k, $v := $collectDB}}
+    {{- if ge (sub currentTime.Unix $v.Expire) $collectDBExpire}}
+        {{- $collectDB.Del $k}}
+    {{- end}}
+{{end}}
+
+{{/* END GAME */}}
+{{if .ExecData}}
+    {{$rand := randInt 37}}{{$type := "green"}}
+        
+    {{$black := cslice 2 4 6 8 10 11 13 15 17 20 22 24 26 28 29 31 33 35}}
+    {{$bets := sdict
+        "1-12" (seq 1 13)
+        "13-24" (seq 13 25)
+        "25-36" (seq 25 37)
+        "1-18" (seq 1 19)
+        "19-36" (seq 19 37)
+    }}
+    {{$cor := cslice (str $rand)}}
+
+    {{$table := cslice}}{{$t := cslice}}
+    {{range seq 1 37}}
+        {{$t = $t.Append (cslice . (or (and (in $black .) "black") "red"))}}
+        {{if not (mod . 3)}}
+            {{$table = $table.Append $t}}{{$t = cslice}}
+        {{end}}
+    {{end}}
+        
+    {{range $table}}
+        {{- $b := 0}}
+        {{- range $i, $ := .}}
+            {{- if eq (index . 0) $rand}}
+                {{- $cor = $cor.AppendSlice (cslice ($type = (index . 1)) (index (cslice "1st" "2nd" "3rd") $i))}}{{- $b = 1}}
+            {{- end}}
+        {{- end}}
+        {{- if $b}}{{- break}}{{- end}}
+    {{end}}
+
+    {{range $k, $v := $bets}}
+        {{- if in $v $rand}}{{- $cor = $cor.Append $k}}{{- end}}
+    {{end}}
+
+    {{$answer := print $type " " $rand}}
+    {{if $rand}}
+        {{$cor = $cor.Append (or (and (not (mod $rand 2)) "evens") "odds")}}
+    {{else}}
+        {{$cor = $cor.Append "green"}}
+    {{end}}
+
+    {{$winners := ""}}
+    {{range $rouletteDB.bets}}
+        {{- if in $cor .guess}}
+            {{- $d := ($collectDB.Get .UserID).Credits}}
+            {{- $cred := (mult .bet (execTemplate "getMultiplier" .guess))}}
+
+            {{- $collectDB.Set .UserID (sdict "Expire" currentTime.Unix "Credits" (add $d $cred))}}
+            {{- $winners = print $winners "<@" .UserID "> - " $cred " CREDITS\n"}}
+        {{- end}}
+    {{end}}
+
+    {{print "The ball landed on `" $answer "`\n\n**Winners:**\n" (or $winners "Nobody won\n") "\nRun the `" .ServerPrefix "collect` command to claim your price. It'll expire in " (humanizeDurationSeconds (toDuration (print $collectDBExpire "s"))) "."}}
+
+    {{dbSet .Guild.ID "collectDB" $collectDB}}
+    {{dbDel .Channel.ID "roulette"}}
+
+    {{return}}
+{{end}}
+
+{{/* ROULETTE COMMAND */}}
+{{if hasPrefix .Cmd (print .ServerPrefix "roulette")}}
+    {{$credits := toInt (or (dbGet .User.ID $creditsDB).Value 0)}}
+
+    {{$args := parseArgs 2 (print .Cmd " <bet> <guess>")
+        (carg "int" "bet")
+        (carg "string" "guess")
+    }}
+
+    {{$guess := lower ($args.Get 1)}}{{$int := toInt $guess}}
+    {{$bet := $args.Get 0}}
+    {{if not (or
+        (eq $guess "0" "00" "green" "black" "red" "evens" "odds" "1st" "2nd" "3rd" "1-12" "13-24" "25-36" "1-18" "19-36" "1-18" "19-36")
+        (and $int (le $int 36) (ge $int 0))
+    )}}
+        Incorrect guess.
+        {{return}}
+    {{end}}
+
+    {{$err := 0}}
+    {{if $cd := dbGet .User.ID "rouletteCooldown"}}
+        ⚠️ You can play roulette again in <t:{{ $cd.ExpiresAt.Unix }}:R>
+        {{$err = 1}}
+    {{else if gt $bet $maxBet}}
+        You can bet maximum `{{$maxBet}}` credits.
+        {{$err = 1}}
+    {{else if lt $bet $minBet}}
+        You can bet minimum `{{$minBet}}` credits.
+        {{$err = 1}}
+    {{else if gt $bet $credits}}
+        You haven't got `{{$bet}}` CREDITS. You got only `{{$credits}}` CREDITS.
+        {{$err = 1}}
+    {{end}}
+
+    {{if $err}}
+        {{deleteTrigger 5}}
+        {{deleteResponse 5}}
+        {{return}}
+    {{end}}
+
+    {{$found := false}}
+    {{range $rouletteDB.bets}}
+        {{- if eq .UserID $.User.ID}}{{- $found = true}}{{- end}}
+    {{end}}
+
+    {{if $found}}
+        {{print "You are already playing.\nThe game will end in <t:" $rouletteDB.endTime ":R>"}}
+        {{deleteTrigger 5}}
+        {{deleteResponse 5}}
+        {{return}}
+    {{end}}
+        
+    {{$rouletteDB.Set "bets" ($rouletteDB.bets.Append (sdict "bet" $bet "guess" $guess "UserID" .User.ID))}}
+
+    {{if not $db}}
+        {{scheduleUniqueCC .CCID nil 60 "roulette" true}}
+    {{end}}
+ 
+    {{dbSetExpire .Channel.ID "roulette" $rouletteDB 3600}}
+    {{dbSetExpire .User.ID "rouletteCooldown" true $cooldown}}
+    {{$s := dbIncr .User.ID $creditsDB (sub 0 $bet)}}
+
+    {{print "You bet `" $bet "` CREDITS for `" $guess "`.\nThe game will end in <t:" $rouletteDB.endTime ":R>"}}
+{{end}}
+
+{{/*COLLECT COMMAND*/}}
+{{if hasPrefix .Cmd (print .ServerPrefix "collect")}}
+    {{$collect := $collectDB.Get .User.ID}}
+
+    {{if not $collect}}
+        You haven't got any CREDITS to collect.
+        {{return}}
+    {{end}}
+
+    {{$s := dbIncr .User.ID $creditsDB $collect.Credits}}
+
+    {{$collectDB.Del .User.ID}}
+    {{dbSet .Guild.ID "collectDB" $collectDB}}
+
+    You have succesfully collected `{{$collect.Credits}}` CREDITS.
+{{end}}
+
+{{/* GET PRICE MULTIPLIER */}}
+{{define "getMultiplier"}}
+    {{$ans := .}}{{$mult := 0}}
+
+    {{if eq $ans "1-12" "13-24" "25-36" "1st" "2nd" "3rd"}}
+        {{$mult = 3}}
+    {{else if eq $ans "black" "red" "1-18" "19-36" "evens" "odds"}}
+        {{$mult = 2}}
+    {{else if or (toInt $ans) (eq $ans "0" "00" "green")}}
+        {{$mult = 36}}
+    {{end}}
+    {{return $mult}}
+{{end}}
