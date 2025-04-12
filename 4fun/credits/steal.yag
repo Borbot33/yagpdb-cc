@@ -1,0 +1,68 @@
+{{/*
+    Made by Borbot in 2025
+
+    Trigger type: Command
+    Trigger: steal
+*/}}
+
+{{/* SETTINGS */}}
+{{$percentage := 20}} {{/* The max amount you can steal */}}
+{{$losePercentage := 30}}
+
+{{$cooldown := 300}} {{/* Cooldown */}}
+{{$creditsDB := "CREDITS"}}
+
+{{/* CODE */}}
+{{$cooldowns := or (dbGet 0 "stealCooldowns").Value dict}}
+{{$currentTime := currentTime.Unix}}
+{{- range $k, $v := $cooldowns -}}
+    {{- if lt $currentTime $v -}}
+        {{- continue -}}
+    {{- end -}}
+    {{- $cooldowns.Del $k -}}
+{{- end -}}
+
+{{if $cooldown := $cooldowns.Get .User.ID}}
+    You're on cooldown right now. You can steal again in <t:{{$cooldown}}:R>
+    {{return}}
+{{end}}
+
+{{$randomMember := shuffle (dbTopEntries $creditsDB 100 0)}}
+{{if not $randomMember}}
+    You haven't stolen anything, nobody has got any {{$creditsDB}}.
+    {{return}}
+{{end}}
+{{$randomMember = index $randomMember 0}}
+
+{{$cooldowns.Set .User.ID (add $currentTime $cooldown)}}
+{{dbSet 0 "stealCooldowns" $cooldowns}}
+
+{{if eq $randomMember.UserID .User.ID}}
+    {{sendMessage nil (printf "You tried to steal your own %s, you lost the chance for stealing %s." $creditsDB $creditsDB) }}
+    {{return}}
+{{end}}
+
+{{$user := str $randomMember.UserID}}
+{{with userArg $randomMember.UserID}}
+    {{$user = .String}}
+{{end}}
+
+{{if and (gt (randInt 1 101) $losePercentage) (gt ($m := mult (fdiv $percentage 100) (or $randomMember.Value 0|toInt)|toInt) 0)}}
+    {{$stole := randInt $m}}
+    {{sendMessage nil (complexMessage "reply" .Message.ID "allowed_mentions" sdict "content" (printf "You have stolen `%d` of** %s's** %s." $stole $user $creditsDB))}}
+
+    {{$s := dbIncr $randomMember.UserID $creditsDB (sub 0 $stole)}}
+    {{$s := dbIncr .User.ID $creditsDB $stole}}
+{{else}}
+    {{$cash :=  mult (fdiv $percentage 100) (or (dbGet .User.ID $creditsDB).Value 0)|toInt}}
+    {{if le $cash 0}}
+        You got caught but you're poor, so you get jailed.
+        {{return}}
+    {{end}}
+    
+    {{$stole := randInt $cash}}
+    {{sendMessage nil (complexMessage "reply" .Message.ID "allowed_mentions" sdict "content" (printf "You got caught stealing and you had to pay** %s **`%d` %s to not go to jail" $user $stole $creditsDB))}}
+
+    {{$s := dbIncr .User.ID $creditsDB (sub 0 $stole)}}
+    {{$s := dbIncr $randomMember.UserID $creditsDB $stole}}
+{{end}}

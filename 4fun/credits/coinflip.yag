@@ -1,0 +1,68 @@
+{{/*
+    Trigger type: Command
+    Trigger: coinflip
+
+    Made by Borbot (1137070353340960829)
+*/}}
+
+{{/* CONFIG */}}
+{{$creditsDB := "CREDITS"}} {{/* CREDITS DB NAME*/}}
+{{$cooldown := 300}} {{/* COIN-FLIP COOLDOWN */}}
+{{$minBet := 1000}} 
+{{$maxBet := 50000}} 
+
+{{/* CODE*/}}
+{{$args := parseArgs 2 "??coinflip <bet> <guess>" 
+    (carg "int" "bet")
+    (carg "string" "guess")
+}}
+{{$credits := toInt (or (dbGet .User.ID $creditsDB).Value 0)}}
+{{$bet := $args.Get 0}}
+
+{{if $cd := dbGet .User.ID "coinflipCooldown"}}
+    ⚠️ You can flip coin again in <t:{{ $cd.ExpiresAt.Unix }}:R>
+    {{return}}
+{{end}}
+
+{{if gt $bet $maxBet}}
+    You can bet maximum `{{$maxBet}}` credits.
+    {{return}}
+{{end}}
+
+{{if lt $bet $minBet}}
+    You can bet minimum `{{$minBet}}` credits.
+    {{return}}
+{{end}}
+
+{{if gt $bet $credits}}
+    You haven't got `{{$bet}}` CREDITS. You got only `{{$credits}}` CREDITS.
+    {{return}}
+{{end}}
+
+{{$heads := cslice "h" "head" "heads"}}
+{{$tails := cslice "t" "tail" "tails"}}
+
+{{$sel := ""}}
+{{if in $heads (lower ($args.Get 1))}}
+    {{$sel = "heads"}}
+{{else if (in $tails (lower ($args.Get 1)))}}
+ 	{{$sel = "tails"}}
+{{end}}
+
+{{if not $sel}}
+    You can only bet for `heads` or `tails`.
+    {{return}}
+{{end}}
+
+{{$correctAnswer := index (shuffle (cslice "heads" "tails")) 0}}
+{{if eq $sel $correctAnswer}}
+   {{$s := dbIncr .User.ID $creditsDB $bet}}
+   {{$text := printf "Tossed: `%s`, You said `%s` and you WIN `%d` CREDITS 💰." $correctAnswer $sel $bet}}
+{{sendMessage nil $text}}
+{{else}}
+   {{$s := dbIncr .User.ID $creditsDB (sub 0 $bet)}}
+   {{$text := printf "Tossed: `%s`, You said `%s` and you LOSE `%d` CREDITS 🤡" $correctAnswer $sel $bet}}
+   {{sendMessage nil $text}}
+{{end}}
+
+{{dbSetExpire .User.ID "coinflipCooldown" true $cooldown}}
