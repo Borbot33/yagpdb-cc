@@ -1,0 +1,50 @@
+{{/*
+    Trigger type: Command
+    Command name: wiki
+
+    Made by Borbot in 2025
+*/}}
+
+{{/* CONFIG*/}}
+{{$requestChannel := 0}} {{/* A SPAMMING CHANNEL, AT BEST PRIVATE */}}
+
+{{/* CODE */}}
+{{if not .CmdArgs}}
+    What do you want to search? `{{.Cmd}} <search>`
+    {{return}}
+{{end}}
+{{$mID := sendMessageRetID $requestChannel (print "https://en.wikipedia.org/wiki/" (reReplace " " .StrippedMsg "_"|urlescape))}}
+{{sleep 2}}
+
+{{$msg := getMessage $requestChannel $mID}}
+{{deleteMessage $requestChannel $mID 0}}
+
+{{if not $msg.Embeds}}
+    Couldn't find that what you've searched.
+    {{return}}
+{{end}}
+
+{{$emb := (index $msg.Embeds 0)}}
+{{if hasSuffix $emb.Description "may refer to:"}}
+    Open the [page](<{{$emb.URL}}>) to look at the search results.
+    {{return}}
+{{end}}
+
+{{$embed := sdict
+    "title" $emb.Title "url" $emb.URL
+    "footer" (sdict
+        "icon_url" "https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Wikipedia-logo-v2.svg/1024px-Wikipedia-logo-v2.svg.png"
+        "text" "Powered by Wikipedia"
+    )
+    "color" 0xffffff
+    "timestamp" currentTime
+}}
+
+{{if $img := $emb.Thumbnail}}
+    {{$embed.Set "image" $img}}
+{{end}}
+{{if $desc := $emb.Description}}
+    {{$embed.Set "description" $desc}}
+{{end}}
+
+{{sendMessage nil (cembed $embed)}}

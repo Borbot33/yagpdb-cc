@@ -1,0 +1,47 @@
+{{/*
+    Trigger type: Command
+    Command name: artikel
+
+    Made by Borbot in 2025
+*/}}
+
+{{/* CONFIG*/}}
+{{$requestChannel := 0}} {{/* A SPAMMING CHANNEL, AT BEST PRIVATE */}}
+
+{{if not .CmdArgs}}
+    **Correct Usage:** {{.Cmd}} <word>
+    {{return}}
+{{end}}
+
+{{$words := split .Message.Content " "}}
+{{if gt (len $words) 2}}
+    You can only give one word.
+    {{return}}
+{{end}}
+
+{{$word := title (lower (index $words 1))}}
+
+{{$article := ""}}{{$mID := 0}}
+{{range (cslice "der" "die" "das")}}
+    {{if $mID}}
+        {{editMessage $requestChannel $mID (print "https://der-artikel.de/" . "/" $word ".html")}}
+    {{else}}
+        {{$mID = sendMessageRetID $requestChannel (print "https://der-artikel.de/" . "/" $word ".html")}}
+    {{end}}
+    {{sleep 1}}
+    {{$msg := getMessage $requestChannel $mID}}
+    {{if not $msg.Embeds}}
+        {{continue}}
+    {{end}}
+
+    {{$article = .}}
+    {{break}}
+{{end}}
+{{deleteMessage $requestChannel $mID 0}}
+
+{{if not $article}}
+    The word doesn't exist or couldn't be found.
+    {{return}}
+{{end}}
+
+The correct artikel is **{{$article}} {{$word}}**
